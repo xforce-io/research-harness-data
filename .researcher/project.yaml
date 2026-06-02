@@ -1,0 +1,54 @@
+# project.yaml — structured project soul (data pillar)
+meta:
+  topic_oneline: "Data resource management for agent harnesses — catalog/metadata + connections over structured, unstructured, and view data, conforming to a shared ontology"
+
+research_questions:
+  - id: RQ1
+    text: "How should an agent harness manage data-resource metadata and a catalog so an agent reliably discovers and selects the right source across a long-horizon task — without per-query LLM scans of the whole corpus?"
+  - id: RQ2
+    text: "How can structured (tables/SQL), unstructured (docs/text), and vector data be exposed to an agent under one unified catalog + access interface, instead of bespoke per-source glue?"
+  - id: RQ3
+    text: "What is the role of data views / semantic layers / virtualization in giving agents stable logical handles over heterogeneous, changing physical sources?"
+  - id: RQ4
+    text: "How should the data catalog's metadata conform to a shared ontology/schema (the interface to the ontology pillar) so data semantics stay consistent across multi-step execution?"
+  - id: RQ5
+    text: "How are data freshness, connection lifecycle, and access control managed for long-running agent tasks — the supply must stay correct and available, not just discoverable once?"
+
+inclusion_criteria:
+  - "Must address one of RQ1–RQ5 with an implementable mechanism (catalog schema, connector model, view/semantic-layer design, retrieval/selection rule), not just a position."
+  - "Agent / LLM consumption angle preferred: data supplied to an autonomous agent, not a human analyst."
+  - "Mechanisms that span structured + unstructured under one abstraction earn extra weight."
+
+exclusion_criteria:
+  - "Pure benchmark/leaderboard papers without a data-management mechanism."
+  - "Pure RAG accuracy-tuning with no catalog/metadata/connection contribution."
+  - "Single-source-only work with no generalization to a heterogeneous catalog."
+  - "Decision/planning, tool-execution, or trajectory-observability work — those belong to the decision/execution/trace pillars."
+
+sources:
+  - kind: arxiv
+    queries:
+      - "agent data catalog metadata"
+      - "LLM agent data access heterogeneous sources"
+      - "semantic layer data virtualization LLM"
+      - "unstructured structured unified retrieval agent"
+      - "knowledge base construction LLM agent"
+      - "text-to-SQL table retrieval agent"
+      - "data discovery metadata management"
+      - "retrieval augmented generation data freshness"
+    priority: high
+  - kind: semantic_scholar
+    queries:
+      - "data catalog metadata management agents"
+      - "data virtualization semantic layer"
+    priority: normal
+
+paper_axes:
+  - name: data_kind
+    values: [structured, unstructured, vector, view, mixed]
+  - name: layer
+    values: [catalog_metadata, connection_access, view_semantic_layer, retrieval_selection]
+
+cadence:
+  default_interval_days: 7
+  backoff_after_empty_runs: 3
