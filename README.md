@@ -34,8 +34,9 @@ See [.researcher/thesis.md](.researcher/thesis.md) for the full working thesis.
 
 ## Papers
 
-_Last Updated: 2026-06-02_
+_Last Updated: 2026-06-03_
 
 | # | Title | Layer / Axis | Priority | Read |
 |---|-------|--------------|----------|------|
 | 01 | [An Agentic Approach to Metadata Reasoning](notes/01_an_agentic_approach_to_metadata_reasoning.md) | retrieval/selection (primary), catalog/metadata (secondary) · structured + view | High | ✅ |
+| 02 | [Semantic Layers for Reliable LLM-Powered Data Analytics](notes/02_semantic_layers_for_reliable_llm_powered.md) | view/semantic layer (primary), catalog/metadata (secondary) · structured | High | ✅ |

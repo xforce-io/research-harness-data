@@ -23,6 +23,16 @@ _The catalog of typed metadata over data resources — the thesis's core mechani
   populated catalog (lineage, data-quality metrics, usage patterns, glossary),
   which the paper concedes most enterprises lack [1] — an enabling precondition,
   not a given.
+- **Semantic Layer (Cube)** [2] corroborates the core "typed metadata as context,
+  not inference" claim from the business-semantics angle: adding a described
+  semantic layer in-context (vs. raw schema only) lifts first-shot analytical
+  accuracy +17.2–23.2 pp across three frontier models in a controlled paired
+  design, every McNemar p ≤ 0.0015 [2: §5.1]. A second, independent instance of
+  RQ1's mechanism — here the metadata is informal hand-authored NL prose rather
+  than a precomputed statistical profile [1].
+  - relation: **builds-on** thesis RQ1 [high] — supply described metadata so the
+    model looks up rather than infers; composable with [1] MR (selection) since
+    this paper grounds meaning, not table choice [2: §3.1].
 
 ## §2 Retrieval & Selection
 
@@ -72,10 +82,30 @@ _One catalog + access interface across heterogeneous source kinds (thesis RQ2)._
 
 _Stable logical handles over churning physical sources (thesis RQ3)._
 
-- _(no dedicated paper yet.)_ MR's lineage-based mapping of derived tables to a
-  clean base ancestor [1] is the closest adjacent signal — a primitive
-  view-over-physical-churn handle — but the paper does not treat views as a
-  first-class semantic layer.
+- **Semantic Layer (Cube)** [2] — first dedicated RQ3 paper. A ~4 KB hand-authored
+  markdown semantic-layer document (measure formulas, dimensional hierarchies, data
+  conventions, disambiguation rules) added to the prompt raises first-shot
+  analytical accuracy +17.2–23.2 pp across three frontier models (e.g. 45.5%→68.7%),
+  every paired McNemar p ≤ 0.0015 [2: §5.1]. The effect is *structural*: with the
+  document the three models are statistically indistinguishable, and without it also
+  indistinguishable — document presence, not model tier, accounts for essentially
+  all pairwise variance [2: §5.2]. Mechanism: a semantic layer converts the dominant
+  text-to-SQL error class (schema-linking + business-logic, >80% of failures) from
+  open-ended inference into constrained lookup [2: §3.1, §6.1]. **Caveat:** only the
+  *context form* (advisory prose in the prompt) is measured; the runtime/view form
+  that would actually absorb physical churn — RQ3's "stable handle over changing
+  sources" property — is asserted as a superior lower bound but left to future work,
+  and no staleness / wrong-document condition is run [2: §6.2, §6.5].
+  - relation: **orthogonal** to [1] MR [med] — MR selects *which tables* via a staged
+    profiling catalog; this paper grounds *what the supplied schema means* via
+    business semantics. Same dominant error class, different pipeline stage,
+    composable not competing; neither cites the other [2: §3.1].
+  - relation: **builds-on** thesis RQ3 [med] — demonstrates the semantic-layer
+    benefit in context form only; the churn-absorbing view form remains
+    undemonstrated [2: §6.2].
+- MR's lineage-based mapping of derived tables to a clean base ancestor [1] is an
+  adjacent signal — a primitive view-over-physical-churn handle — but MR does not
+  treat views as a first-class semantic layer.
 
 ## §5 Ontology Conformance & Freshness
 
@@ -89,6 +119,18 @@ lifecycle as production concerns._
   nor measured, so the link is design-compatible, not demonstrated [1].
   - relation: **builds-on** thesis RQ4 [med] — design-compatible with the
     ontology-pillar interface; effect unmeasured [1].
+- **Semantic Layer (Cube)** [2] raises RQ4 from design-compatible to measured: §6.3
+  explicitly equates the markdown semantic layer's causal mechanism with formal
+  ontology approaches — Sequeda et al.'s OWL ontology (16.7%→54.2%) and Allemang &
+  Sequeda's ontology-based validation (→72%) — and the grounding effect is
+  independently corroborated across ontology studies [2: §6.3, §2.6]. Cross-source
+  agreement, though here the "ontology" is informal NL prose, not a formal schema.
+  On freshness: the premise is an *authoritative static* document with no staleness
+  or lifecycle mechanism and no wrong-document test [2: §6.5] — adjacent to this
+  bucket's freshness concern but explicitly unaddressed.
+  - relation: **builds-on** thesis RQ4 [high] — controlled paired effect plus
+    cross-study ontology corroboration; effect now measured, not just
+    design-compatible [2: §5.1, §6.3].
 
 ## Relations index
 
@@ -98,3 +140,8 @@ lifecycle as production concerns._
 | [1] MR | builds-on | thesis RQ1 (typed-metadata catalog vs raw scan) | high |
 | [1] MR | orthogonal | thesis RQ2 (unstructured arm — excluded) | med |
 | [1] MR | builds-on | thesis RQ4 (ontology-conformant metadata) | med |
+| [2] Semantic Layer | orthogonal | [1] MR (different pipeline stage) | med |
+| [2] Semantic Layer | builds-on | thesis RQ1 (typed metadata as context) | high |
+| [2] Semantic Layer | builds-on | thesis RQ3 (semantic layers / views — context form) | med |
+| [2] Semantic Layer | builds-on | thesis RQ4 (ontology-conformant metadata) | high |
+| [2] Semantic Layer | contradicts | thesis RQ5 (freshness / lifecycle) | low |
