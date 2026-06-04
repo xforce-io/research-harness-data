@@ -7,226 +7,66 @@
 
 ## Framing
 
-The `data` pillar's bet is that a long-horizon agent's reliability is bounded not
-by reasoning cleverness but by its **data supply layer** — whether it can
-discover, select, and access the right data at each step. The central design
-claim is sharp and falsifiable: this requires a **catalog of typed metadata over
-data resources**, consulted as fragments, rather than per-query LLM scans of a raw
-corpus. The two papers read so far attack this claim from opposite ends of the
-same pipeline: [1] builds an agent whose entire job is *selecting which data* via
-metadata reasoning over a catalog; [2] runs a controlled experiment on *grounding
-what the selected data means* via a semantic layer. They never cite each other,
-yet both land on the same mechanism — supply described/typed metadata so the model
-looks up rather than infers — and both report large effects from it. v2 of this
-report is about how much that convergence strengthens the core claim (RQ1), where
-[2] newly opens the semantic-layer arm (RQ3) the thesis had no evidence for, and
-which parts of the thesis (unstructured unification, freshness over long tasks)
-remain untouched or newly in tension.
+`data` 支柱押注的核心是:长程 agent 的可靠性并非受限于推理的巧妙程度,而是受限于其 **data supply layer(数据供给层)** —— 即它能否在每一步发现、选择并访问到正确的数据。这一中心设计主张既尖锐又可证伪:它要求一个 **覆盖数据资源的、带类型的 metadata catalog**,以片段方式被查询,而非对原始语料做逐查询的 LLM 扫描。目前已读的两篇论文从同一条流水线的两端攻击这一主张:[1] 构建了一个 agent,其全部职责就是通过在 catalog 上做 metadata 推理来 *选择哪些数据*;[2] 则做了一个受控实验,围绕通过 semantic layer 来 *锚定所选数据的含义*。两者从不互相引用,却落到了同一机制上 —— 供给经过描述/带类型的 metadata,让模型去查阅而非推断 —— 并且都报告了由此带来的显著效应。本报告 v2 关注的是:这种收敛在多大程度上强化了核心主张(RQ1)、[2] 在何处新开了 thesis 此前毫无证据的 semantic-layer 这条线(RQ3),以及 thesis 的哪些部分(非结构化统一、长任务中的 freshness)仍未被触及或新近陷入张力。
 
 ## Goal A — Catalog of typed metadata vs. raw-corpus scan
 
-**What the literature now says.** Two independent data points, same conclusion. The
-Metadata Reasoner (MR) [1] is an orchestration agent that selects a *sufficient +
-minimal* table subset by consulting catalog metadata in stages (embedding search →
-attached statistical profiles → on-the-fly tools), never scanning raw rows
-wholesale; it reaches 83.16% set-aware F1 on KramaBench vs. 50.77% (vector search)
-and 45.12% (Pneuma) in ~10.1 reasoning steps [1]. Its most thesis-relevant ablation:
-the **precomputed "attached" metadata layer** (schema + LLM-summarized profiling)
-is the single largest contributor, raising F1 73.43% → 79.66% *while cutting* steps
-13.51 → 8.36 [1] — a typed-metadata layer makes selection simultaneously more
-accurate and cheaper. [2] tests the same "metadata-as-context, not inference"
-mechanism on a different stage and with a cleaner design: a single ~4 KB
-hand-authored semantic-layer document added to the prompt lifts first-shot
-analytical accuracy +17.2–23.2 pp across three frontier models (e.g. 45.5%→68.7%),
-every paired McNemar p ≤ 0.0015 [2: §5.1]. Crucially, [2]'s effect is *structural*:
-with the document the three models are statistically indistinguishable and without
-it also indistinguishable — document presence, not model tier, accounts for
-essentially all pairwise variance [2: §5.2]. That directly addresses MR's worst
-confound (below): the grounding gain in [2] is *not* a backbone-capability artifact.
+**当前文献的结论。** 两个独立的数据点,得出同一结论。Metadata Reasoner(MR)[1] 是一个编排 agent,它通过分阶段查询 catalog metadata(embedding 搜索 → 附加的统计画像 → 即时工具)来选出一个 *充分且最小* 的表子集,从不整体扫描原始行;它在 KramaBench 上达到 83.16% 的 set-aware F1,而 vector search 为 50.77%、Pneuma 为 45.12%,仅用约 10.1 个推理步 [1]。其中与 thesis 最相关的消融实验:**预计算的"附加(attached)" metadata 层**(schema + LLM 概括的画像)是单一最大贡献项,将 F1 从 73.43% 提升到 79.66%,*同时* 将步数从 13.51 削减到 8.36 [1] —— 一个带类型的 metadata 层让选择同时更准且更省。[2] 在不同阶段、以更干净的设计检验了同一"metadata 作为上下文、而非推断"机制:在 prompt 中加入单个约 4 KB 的手写 semantic-layer 文档,使三个前沿模型的首发分析准确率提升 +17.2–23.2 pp(例如 45.5%→68.7%),每一对配对 McNemar 检验 p ≤ 0.0015 [2: §5.1]。关键在于,[2] 的效应是 *结构性* 的:有该文档时三个模型在统计上不可区分,没有时也不可区分 —— 是文档的存在、而非模型档次,解释了几乎全部成对方差 [2: §5.2]。这直接回应了 MR 最严重的混淆因素(见下):[2] 中的锚定增益 *并非* backbone 能力的产物。
 
-**Residual gap / tension.** (i) MR's single-backbone confound persists in [1] (every
-variant + Pneuma run on Gemini-3-Flash; no weaker-model test) — but [2]'s
-model-invariance result is strong indirect evidence that the *typed-metadata-as-
-context* lever is real independent of backbone strength [2: §5.2]. (ii) Both papers
-presume *rich* metadata that may not exist: MR concedes most enterprises lack the
-lineage/quality/glossary catalog it assumes [1]; [2]'s document is hand-authored by
-an analyst who had seen the dataset [2: §4.2]. The mechanism is doubly validated;
-its *real-world precondition* (where does the rich metadata come from, and who
-maintains it) is validated by neither. (iii) A genuine cross-paper tension on
-*access method*: [2] discloses in one data-free sentence that an internal
-agentic-tool-use system with equivalent semantic knowledge did **not** beat the
-all-context schema-only baseline [2: §6.5] — adverse to MR's agentic-retrieval
-premise. The two are not directly comparable (selection vs. generation; F1 vs.
-pass-rate), but they bracket an open design question: when does staged/agentic
-catalog retrieval beat simply inlining the metadata?
+**残余缺口 / 张力。**(i)MR 的单一 backbone 混淆在 [1] 中依然存在(所有变体 + Pneuma 都跑在 Gemini-3-Flash 上;没有更弱模型的测试)—— 但 [2] 的模型不变性结果是有力的间接证据,表明 *带类型 metadata 作为上下文* 这一杠杆是真实的,独立于 backbone 强度 [2: §5.2]。(ii)两篇论文都预设了 *丰富* 的 metadata,而这可能并不存在:MR 承认大多数企业缺少它所假设的 lineage/质量/术语表 catalog [1];[2] 的文档是由一位见过该数据集的分析师手写的 [2: §4.2]。机制得到了双重验证;但其 *现实前提*(丰富的 metadata 从何而来、由谁维护)两者都未验证。(iii)在 *访问方式* 上存在一处真切的跨论文张力:[2] 用一句无数据的话披露,一个具备等价语义知识的内部 agentic 工具调用系统 **并未** 击败全上下文的纯 schema 基线 [2: §6.5] —— 这与 MR 的 agentic 检索前提相悖。两者不能直接比较(选择 vs. 生成;F1 vs. pass-rate),但它们共同框定了一个开放的设计问题:分阶段 / agentic 的 catalog 检索何时优于直接把 metadata 内联进 prompt?
 
-**What we should do.** Treat the typed-metadata catalog as the spine, but make
-catalog *richness* a first-class problem, not an assumption: our access layer must
-degrade gracefully on schema+text-only catalogs and ideally *bootstrap* richer
-metadata itself (MR's "attached profiling is precomputed and cheap" [1] argues for
-profiling as a standing catalog-build step). On access method, resolve the [1]/[2]
-tension structurally: agentically select a sufficient+minimal set when the catalog
-is large, then inline that set + a semantic layer for grounding when it fits the
-context window — make "is the relevant metadata small enough to inline?" an explicit
-routing decision rather than always-retrieve or always-inline.
+**我们应当怎么做。** 把带类型的 metadata catalog 当作主干,但把 catalog 的 *丰富度* 当作一等问题、而非假设:我们的访问层必须在仅有 schema + 文本的 catalog 上优雅降级,并最好能自行 *自举(bootstrap)* 出更丰富的 metadata(MR 的"附加画像是预计算且廉价的"[1] 支持把画像作为常驻的 catalog 构建步骤)。在访问方式上,结构化地化解 [1]/[2] 的张力:当 catalog 较大时 agentic 地选出充分且最小的集合,再在该集合能放进 context window 时内联它 + 一个 semantic layer 用于锚定 —— 把"相关 metadata 是否小到足以内联?"做成一个显式的路由决策,而非永远检索或永远内联。
 
 ## Goal B — One catalog across structured / unstructured / view / vector
 
-**What the literature now says.** Still partial, and now doubly so. MR unifies
-structured + semi-structured tables under one search/selection interface and treats
-derived/partitioned tables as view-like resources via injected lineage, but
-**explicitly excludes unstructured data** [1]. [2] adds a semantic-layer grounding
-mechanism but is also **structured-only** (25-table ClickHouse retail warehouse,
-text-to-SQL) [2: §4.1]. Two papers, zero coverage of the unstructured/vector arm.
+**当前文献的结论。** 仍是部分覆盖,如今更显不足。MR 把结构化 + 半结构化表统一在一个搜索/选择接口下,并通过注入的 lineage 把派生/分区表当作 view 式资源处理,但 **显式排除了非结构化数据** [1]。[2] 加入了一个 semantic-layer 锚定机制,但同样 **仅限结构化**(25 张表的 ClickHouse 零售数仓,text-to-SQL)[2: §4.1]。两篇论文,对非结构化/vector 这条线零覆盖。
 
-**Residual gap / tension.** The unstructured arm of the unification claim (RQ2) has
-*zero* evidence after two reads — the single largest open span in the pillar. We
-now have two demonstrations that structured (+ view) sources benefit from a shared
-metadata interface, and still no evidence that the same catalog abstraction extends
-to unstructured/vector sources without bespoke glue.
+**残余缺口 / 张力。** 统一主张中的非结构化分支(RQ2)在读完两篇论文后 *仍无任何* 证据 —— 这是该支柱中最大的一段空白。我们如今有两项论证表明结构化(+ view)源能从共享 metadata 接口中获益,却仍无证据表明同一 catalog 抽象能扩展到非结构化/vector 源而不需定制粘合。
 
-**What we should do.** Hold the unstructured unification claim as unproven and
-actively prioritize it. Next reads should target work that puts unstructured or
-vector sources under the *same* catalog + selection/grounding interface, not a
-parallel RAG pipeline — that is where the thesis is most exposed and where both
-papers so far are silent.
+**我们应当怎么做。** 把非结构化统一主张视为未被证明,并主动优先攻克它。后续阅读应锁定那些把非结构化或 vector 源纳入 *同一* catalog + 选择/锚定接口的工作,而非另起一条并行的 RAG 流水线 —— 那正是 thesis 最暴露、而迄今两篇论文都缄默之处。
 
 ## Goal C — Semantic layers / views as churn absorbers
 
-**What the literature now says.** This goal flips from "almost nothing" to "first
-direct, controlled evidence — for half the claim." [2] is the first paper aimed at
-RQ3: a hand-authored semantic layer (measure formulas, dimensional hierarchies,
-data conventions, disambiguation rules) supplied in-context converts the dominant
-text-to-SQL failure class (schema-linking + business-logic, >80% of errors) from
-open-ended inference into constrained lookup [2: §3.1, §6.1], for a +17–23 pp gain
-[2: §5.1]. The wins concentrate exactly where physical sources mislead an agent:
-snapshot-vs-flow semantics (raw sums daily inventory snapshots, ~1000× too large),
-sentinel keys, string-valued booleans, time anchoring against a dataset ending
-2009-12-31 [2: §5.4]. MR's lineage-based mapping of derived tables to a clean base
-ancestor [1] remains a weaker adjacent signal — a primitive view-over-physical-churn
-handle, but not a first-class semantic layer.
+**当前文献的结论。** 这个目标从"几乎没有"翻转为"首个直接、受控的证据 —— 但只覆盖主张的一半"。[2] 是第一篇瞄准 RQ3 的论文:一个手写的 semantic layer(度量公式、维度层级、数据约定、消歧规则)以上下文形式供给后,将 text-to-SQL 的主导失败类别(schema-linking + 业务逻辑,占错误的 >80%)从开放式推断转化为受约束的查阅 [2: §3.1, §6.1],带来 +17–23 pp 的增益 [2: §5.1]。增益恰好集中在物理源会误导 agent 之处:snapshot-vs-flow 语义(原始条件对每日库存快照求和,数值大了约 1000 倍)、哨兵键、字符串型布尔值、以及针对一个截至 2009-12-31 的数据集做时间锚定 [2: §5.4]。MR 基于 lineage 将派生表映射到干净基表祖先 [1] 仍是一个较弱的相邻信号 —— 一个原始的"view 覆盖物理变动"把手,但还算不上一等的 semantic layer。
 
-**Residual gap / tension.** [2] validates the *grounding* benefit of a semantic
-layer but only in its **context form** (advisory NL prose in the prompt). The
-property the thesis actually asserts — a *stable logical handle while the view
-absorbs physical churn* — requires the **runtime/view form** (compiler-enforced,
-deterministic), which [2] asserts is a superior lower-bounded alternative but leaves
-entirely to future work [2: §6.2]. There is also no staleness or wrong-document
-test, so "does the handle stay stable as physical sources change?" — the core of
-RQ3 — is undemonstrated [2: §6.5]. And a confound: [2]'s benchmark and document were
-co-authored by one team (Cube), so the wins may partly measure "the document hands
-over the answers to the trick conventions this benchmark deliberately included"
-rather than generic transfer [2: §4.1, §5.4, §6.5].
+**残余缺口 / 张力。** [2] 验证了 semantic layer 的 *锚定* 收益,但仅限其 **上下文形式**(prompt 中的咨询性自然语言散文)。thesis 真正主张的属性 —— *在 view 吸收物理变动的同时提供一个稳定的逻辑把手* —— 需要 **运行时 / view 形式**(由 compiler 强制、确定性),[2] 断言这是更优且有下界保证的替代方案,却把它完全留给了未来工作 [2: §6.2]。也没有任何陈旧化或错误文档的测试,因此"当物理源变化时该把手是否保持稳定?"—— RQ3 的核心 —— 未被演示 [2: §6.5]。还有一处混淆:[2] 的基准与文档由同一团队(Cube)共同编写,因此增益可能部分衡量的是"文档把该基准刻意设入的那些坑约定的答案直接交了出来",而非通用的迁移 [2: §4.1, §5.4, §6.5]。
 
-**What we should do.** Bank the result that *some* semantic layer helps grounding,
-but keep the churn-absorption claim open: the near-term probe is now sharper than in
-v1 — does a *runtime/view* semantic layer hold accuracy when the physical schema
-changes underneath it, vs. a context-form document that must be re-authored? Build
-the semantic layer as an enforced runtime artifact (so it can absorb churn), not a
-prompt string (which [2] only proves for a static snapshot), and test it under
-deliberate physical-source drift.
+**我们应当怎么做。** 把"*某种* semantic layer 有助于锚定"这一结果收入囊中,但保持变动吸收主张为开放:近期的探针现在比 v1 更锐利 —— 当物理 schema 在其底下发生变化时,一个 *运行时 / view* 的 semantic layer 能否保持准确率,相较于一个必须重新编写的上下文形式文档?把 semantic layer 构建为一个被强制执行的运行时产物(使其能吸收变动),而非一个 prompt 字符串([2] 只在静态快照上证明了后者),并在刻意制造的物理源漂移下测试它。
 
 ## Goal D — Ontology conformance as the consistency contract
 
-**What the literature now says.** Upgraded from "design-compatible, unmeasured" to
-"measured by proxy, cross-source corroborated." MR still only *optionally* allows a
-glossary/ontology as catalog-wide metadata, never isolating its effect [1]. But [2]
-§6.3 explicitly equates the markdown semantic layer's causal mechanism with formal
-ontology approaches — Sequeda et al.'s OWL ontology (16.7%→54.2%) and Allemang &
-Sequeda's ontology-based validation (→72%) — and the grounding effect is
-independently corroborated across multiple ontology studies (Sequeda, Luo et al.
-clinical QA 37%→98% with ontology-grounded GraphRAG) [2: §2.6, §6.3]. Cross-source
-agreement raises confidence that *described semantics* drive the gain.
+**当前文献的结论。** 从"设计上兼容、未测量"升级为"经代理指标测量、并被跨源佐证"。MR 仍只 *可选地* 允许把术语表/ontology 作为 catalog 级 metadata,从未隔离其效应 [1]。但 [2] §6.3 明确把 markdown semantic layer 的因果机制等同于形式化 ontology 方法 —— Sequeda 等人的 OWL ontology(16.7%→54.2%)以及 Allemang & Sequeda 的基于 ontology 的校验(→72%)—— 且锚定效应在多个 ontology 研究中得到独立佐证(Sequeda;Luo 等人的临床 QA,借助 ontology-grounded GraphRAG 从 37%→98%)[2: §2.6, §6.3]。跨源一致提升了"*被描述的语义* 驱动了增益"的可信度。
 
-**Residual gap / tension.** The corroboration is for the *family* "structured
-semantics in context" — but [2]'s own artifact is informal NL prose, not a formal
-schema, and it does not isolate *conformance to a shared ontology* (the thesis's
-specific RQ4 mechanism, the interface to the `ontology` pillar) from "any described
-semantics help." So we have stronger evidence that semantics-as-context works, and
-still no controlled test that *ontology conformance specifically* buys multi-step
-semantic consistency over an ad-hoc-but-described layer.
+**残余缺口 / 张力。** 这些佐证针对的是"上下文中的结构化语义"这一 *整族* —— 但 [2] 自身的产物是非正式的自然语言散文,而非形式化 schema,它并未将 *对共享 ontology 的 conformance(一致符合)*(thesis 特有的 RQ4 机制,即到 `ontology` 支柱的接口)从"任何被描述的语义都有帮助"中隔离出来。因此我们有了更强的证据表明语义即上下文是有效的,却仍无受控测试表明 *ontology conformance 本身* 相较于一个临时但被描述的层,能换来多步语义一致性。
 
-**What we should do.** Keep ontology conformance as a hypothesis to instrument, but
-sharpen the A/B: not just schema-free vs. ontology-grounded, but *ad-hoc described
-semantics* (a Cube-style markdown doc) vs. *ontology-conformant described semantics*
-(same content, but typed against the shared schema), measuring consistency drift
-across a multi-step task. [2] shows described semantics help; it does not show the
-*conformance* is what carries the load.
+**我们应当怎么做。** 把 ontology conformance 保留为一个待测量的假设,但锐化 A/B:不只是无 schema vs. ontology-grounded,而是 *临时被描述的语义*(Cube 风格的 markdown 文档)vs. *符合 ontology 的被描述语义*(同样内容,但针对共享 schema 做了类型化),衡量多步任务中的一致性漂移。[2] 表明被描述的语义有帮助;它并未表明承担作用的是 *conformance*。
 
 ## Goal E — Keeping supply correct over long tasks (freshness / lifecycle)
 
-**What the literature now says.** Still thin, and now in mild tension. MR's only
-freshness-adjacent mechanism is lifecycle/quality suffix markers
-(`_prod/_stg/_test`, `_broken_fk`, `_nulls`) used to define "noise-free" selection,
-but those markers were author-injected and exposed in metadata, so the 99%
-noise-avoidance number partly reflects reading injected labels [1]. [2] makes the
-gap explicit rather than closing it: its entire premise is an *authoritative static*
-hand-authored document, with **no** staleness, partial-document, or wrong-document
-condition tested — even though it cites BIRD audits finding 7–10% of evidence
-annotations wrong [2: §2.6, §6.5].
+**当前文献的结论。** 仍然单薄,如今还略有张力。MR 唯一与 freshness 相邻的机制是生命周期/质量后缀标记(`_prod/_stg/_test`、`_broken_fk`、`_nulls`),用于定义"无噪声"选择,但这些标记是作者注入并暴露在 metadata 中的,因此 99% 的避噪数字部分反映的是读取注入标签 [1]。[2] 让这一缺口更显性、而非弥合它:它的整个前提是一个 *权威静态* 的手写文档,**没有** 测试任何陈旧化、部分文档或错误文档的条件 —— 尽管它引用了 BIRD 审计发现 7–10% 的 evidence 标注有误 [2: §2.6, §6.5]。
 
-**Residual gap / tension.** "Keep supply correct over long tasks" (Design Context
-goal c) is the least-tested thesis claim and is now in *direct tension* with [2]'s
-frame: [2] demonstrates a one-shot grounding effect from a frozen, correct artifact,
-while the thesis asserts the data layer's job is to keep supply correct *as sources
-churn* — a property a write-once document does not have. (Logged as a vs-thesis
-contradiction this run.) Neither paper runs a long-horizon task where the right data,
-or the semantic layer itself, goes stale between steps.
+**残余缺口 / 张力。** "在长任务中保持供给正确"(Design Context 目标 c)是 thesis 中测试最少的主张,如今还与 [2] 的框架 *直接张力*:[2] 演示的是来自一个冻结、正确产物的一次性锚定效应,而 thesis 主张数据层的职责是 *在源发生变动时* 保持供给正确 —— 一个一次性写入的文档并不具备这一属性。(本轮记录为一处 vs-thesis 矛盾。)两篇论文都没有运行任何长程任务,让正确数据、或 semantic layer 本身在步骤之间变得陈旧。
 
-**What we should do.** Do not read either paper's static-snapshot result as freshness
-evidence. Make freshness/lifecycle a *measured* catalog facet, and treat the semantic
-layer itself as metadata that must stay fresh and conformant — not a write-once doc.
-Our own evaluation must run multi-step tasks where the right data (and the layer
-describing it) changes between steps — the regime no paper has yet stressed.
+**我们应当怎么做。** 不要把任意一篇论文的静态快照结果当作 freshness 证据。把 freshness/lifecycle 做成一个 *被测量* 的 catalog 维面,并把 semantic layer 自身视为必须保持新鲜且 conformant 的 metadata —— 而非一次性写入的文档。我们自己的评测必须运行多步任务,让正确数据(及描述它的层)在步骤之间发生变化 —— 这正是尚无论文施压过的状态。
 
 ## 可证伪点追踪
 
 - **可证伪点 1 — catalog is necessary** ("Falsified if production agent systems
   achieve stable long-task data grounding with **no** catalog/metadata layer at
-  all"). Current evidence: *pro, strengthened*. MR shows catalog-driven selection
-  beats catalog-free single-shot retrieval (83.16% vs. ≤50.77% F1) [1]; [2] shows
-  described metadata in context beats raw-schema-only grounding (+17–23 pp, paired
-  p ≤ 0.0015) [2: §5.1] — and, importantly, [2]'s model-invariance result rebuts the
-  single-backbone confound that weakened [1] by showing the lever is structural, not
-  capability-driven [2: §5.2]. Open caveat: [2]'s §6.5 reports (no data) that an
-  agentic-tool-use variant did *not* beat all-context — so "catalog is necessary"
-  holds, but "agentic catalog *retrieval* is the right access pattern" is contested.
-  Next observation that would resolve it: a head-to-head of agentic retrieval vs.
-  inlined metadata at fixed accuracy, varying catalog size.
+  all")。当前证据:*支持,已强化*。MR 表明 catalog 驱动的选择优于无 catalog 的单发检索(83.16% vs. ≤50.77% F1)[1];[2] 表明上下文中被描述的 metadata 优于仅原始 schema 的锚定(+17–23 pp,配对 p ≤ 0.0015)[2: §5.1] —— 并且重要的是,[2] 的模型不变性结果通过表明该杠杆是结构性、而非能力驱动的,反驳了削弱 [1] 的单一 backbone 混淆 [2: §5.2]。未决保留:[2] 的 §6.5 报告(无数据)称一个 agentic 工具调用变体 *并未* 击败全上下文 —— 因此"catalog is necessary"成立,但"agentic catalog *retrieval* 是正确的访问模式"则有争议。能解决它的下一个观察:在固定准确率、变动 catalog 规模的条件下,做 agentic 检索 vs. 内联 metadata 的正面对决。
 
 - **可证伪点 2 — unified catalog ≥ bespoke per-source** ("Falsified if unified
   catalogs consistently underperform bespoke per-source integrations on grounding
-  quality"). Current evidence: *insufficient, unchanged*. Both [1] and [2] are
-  structured-only [1; 2: §4.1]; no head-to-head vs. bespoke per-source glue, and the
-  unstructured/vector arm is untouched by two papers. Next observation: a study
-  comparing one catalog interface against tuned per-source pipelines across
-  heterogeneous source kinds.
+  quality")。当前证据:*不足,未变*。[1] 和 [2] 都仅限结构化 [1; 2: §4.1];没有与定制化逐源粘合的正面对决,且非结构化/vector 这条线两篇论文均未触及。下一个观察:一项跨异构源类别,将单一 catalog 接口与调优过的逐源流水线进行比较的研究。
 
 - **可证伪点 3 — views beat raw sources** ("Falsified if agents do better against raw
-  sources than against a curated semantic layer"). Current evidence: *pro for the
-  context form; open for the view form*. [2] is the first direct test: a curated
-  semantic layer beats raw schema by +17–23 pp [2: §5.1], the effect concentrating on
-  exactly the physical-source traps (snapshot-vs-flow, time anchoring, sentinel keys)
-  [2: §5.4]. But only the advisory *context form* is measured; the *runtime/view*
-  form that would absorb physical churn is untested [2: §6.2], and there is no
-  staleness condition [2: §6.5]. So "views beat raw sources" is supported for static
-  curated semantics; "views *as churn absorbers*" is still unproven. Next observation:
-  same-agent accuracy on a runtime view vs. raw tables *under deliberate physical
-  schema drift*.
+  sources than against a curated semantic layer")。当前证据:*上下文形式支持;view 形式开放*。[2] 是首个直接测试:一个精选的 semantic layer 比原始 schema 高 +17–23 pp [2: §5.1],效应集中在恰恰是物理源陷阱的地方(snapshot-vs-flow、时间锚定、哨兵键)[2: §5.4]。但只测量了咨询性的 *上下文形式*;能吸收物理变动的 *运行时 / view* 形式未被测试 [2: §6.2],也没有陈旧化条件 [2: §6.5]。因此"views beat raw sources"对静态精选语义成立;而"views *作为变动吸收器*"仍未被证明。下一个观察:在 *刻意制造的物理 schema 漂移下*,同一 agent 在运行时 view vs. 原始表上的准确率。
 
 - **可证伪点 4 — schema/ontology conformance needed for multi-step consistency**
-  ("Falsified if schema-free catalogs suffice for multi-step semantic consistency").
-  Current evidence: *partial pro, but mis-targeted*. [2] §6.3 ties its effect to
-  formal-ontology results (Sequeda 16.7%→54.2%; Allemang & Sequeda →72%) and
-  corroborates across ontology studies [2: §2.6, §6.3] — strong evidence that
-  *described semantics* help. But [2]'s own artifact is informal prose, and it never
-  isolates *ontology conformance* from "any described semantics," nor measures
-  multi-step consistency. Next observation: an A/B of ad-hoc-described vs.
-  ontology-conformant described semantics, measuring semantic drift over a multi-step
-  task.
+  ("Falsified if schema-free catalogs suffice for multi-step semantic consistency")。当前证据:*部分支持,但靶向偏差*。[2] §6.3 将其效应与形式化 ontology 结果挂钩(Sequeda 16.7%→54.2%;Allemang & Sequeda →72%),并跨 ontology 研究佐证 [2: §2.6, §6.3] —— 是 *被描述的语义* 有帮助的有力证据。但 [2] 自身的产物是非正式散文,它从未将 *ontology conformance* 从"任何被描述的语义"中隔离出来,也未测量多步一致性。下一个观察:临时被描述 vs. 符合 ontology 的被描述语义的 A/B,衡量多步任务中的语义漂移。
 
 ## 版本更新日志
 | 版本 | 日期 | 新增论文 | 关键变化 |
 |------|------|---------|---------|
-| v1 | 2026-06-02 | [01] An Agentic Approach to Metadata Reasoning | Bootstrapped report. Strong support for 可证伪点 1 (catalog necessity) from MR's 83.16% vs ≤50.77% F1 and the attached-metadata ablation; 可证伪点 2/3/4 opened with little-to-no evidence (unstructured arm, semantic layer, and ontology conformance all untested). Flagged single-backbone and catalog-richness confounds. |
-| v2 | 2026-06-03 | [02] Semantic Layers for Reliable LLM-Powered Data Analytics | 可证伪点 3 flips from near-zero to *pro (context form)* — first direct semantic-layer test (+17–23 pp, model-invariant). 可证伪点 1 strengthened: [2]'s model-invariance rebuts MR's single-backbone confound. 可证伪点 4 upgraded to partial-pro via cross-study ontology corroboration, but conformance still not isolated. New cross-paper tension (agentic retrieval vs. all-context, §6.5) and a vs-thesis freshness contradiction (static authoritative doc, no staleness test) logged. Unstructured arm (可证伪点 2) still zero evidence after two structured-only papers. |
+| v1 | 2026-06-02 | [01] An Agentic Approach to Metadata Reasoning | 报告自举。来自 MR 的 83.16% vs ≤50.77% F1 以及 attached-metadata 消融,为可证伪点 1(catalog 必要性)提供强支持;可证伪点 2/3/4 开启时几乎无证据(非结构化分支、semantic layer、ontology conformance 均未测试)。标记了单一 backbone 与 catalog 丰富度的混淆因素。 |
+| v2 | 2026-06-03 | [02] Semantic Layers for Reliable LLM-Powered Data Analytics | 可证伪点 3 从近乎零翻转为 *支持(上下文形式)* —— 首个直接的 semantic-layer 测试(+17–23 pp,模型不变)。可证伪点 1 强化:[2] 的模型不变性反驳了 MR 的单一 backbone 混淆。可证伪点 4 经跨研究 ontology 佐证升级为部分支持,但 conformance 仍未被隔离。记录了新的跨论文张力(agentic 检索 vs. 全上下文,§6.5)以及一处 vs-thesis 的 freshness 矛盾(静态权威文档,无陈旧化测试)。在两篇仅限结构化的论文之后,非结构化分支(可证伪点 2)仍零证据。 |

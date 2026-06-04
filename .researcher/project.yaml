@@ -1,6 +1,7 @@
 # project.yaml — structured project soul (data pillar)
 meta:
   topic_oneline: "Data resource management for agent harnesses — catalog/metadata + connections over structured, unstructured, and view data, conforming to a shared ontology"
+  language: zh            # output language for all agent prose: zh=简体中文 / en=English
 
 research_questions:
   - id: RQ1
