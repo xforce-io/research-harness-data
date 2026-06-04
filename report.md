@@ -5,11 +5,11 @@
 > **Papers:** [01](notes/01_an_agentic_approach_to_metadata_reasoning.md), [02](notes/02_semantic_layers_for_reliable_llm_powered.md)
 > **Thesis:** [.researcher/thesis.md](.researcher/thesis.md)
 
-## Framing
+## 定位
 
 `data` 支柱押注的核心是:长程 agent 的可靠性并非受限于推理的巧妙程度,而是受限于其 **data supply layer(数据供给层)** —— 即它能否在每一步发现、选择并访问到正确的数据。这一中心设计主张既尖锐又可证伪:它要求一个 **覆盖数据资源的、带类型的 metadata catalog**,以片段方式被查询,而非对原始语料做逐查询的 LLM 扫描。目前已读的两篇论文从同一条流水线的两端攻击这一主张:[1] 构建了一个 agent,其全部职责就是通过在 catalog 上做 metadata 推理来 *选择哪些数据*;[2] 则做了一个受控实验,围绕通过 semantic layer 来 *锚定所选数据的含义*。两者从不互相引用,却落到了同一机制上 —— 供给经过描述/带类型的 metadata,让模型去查阅而非推断 —— 并且都报告了由此带来的显著效应。本报告 v2 关注的是:这种收敛在多大程度上强化了核心主张(RQ1)、[2] 在何处新开了 thesis 此前毫无证据的 semantic-layer 这条线(RQ3),以及 thesis 的哪些部分(非结构化统一、长任务中的 freshness)仍未被触及或新近陷入张力。
 
-## Goal A — Catalog of typed metadata vs. raw-corpus scan
+## Goal A —— 带类型 metadata 的 catalog vs. 原始语料扫描
 
 **当前文献的结论。** 两个独立的数据点,得出同一结论。Metadata Reasoner(MR)[1] 是一个编排 agent,它通过分阶段查询 catalog metadata(embedding 搜索 → 附加的统计画像 → 即时工具)来选出一个 *充分且最小* 的表子集,从不整体扫描原始行;它在 KramaBench 上达到 83.16% 的 set-aware F1,而 vector search 为 50.77%、Pneuma 为 45.12%,仅用约 10.1 个推理步 [1]。其中与 thesis 最相关的消融实验:**预计算的"附加(attached)" metadata 层**(schema + LLM 概括的画像)是单一最大贡献项,将 F1 从 73.43% 提升到 79.66%,*同时* 将步数从 13.51 削减到 8.36 [1] —— 一个带类型的 metadata 层让选择同时更准且更省。[2] 在不同阶段、以更干净的设计检验了同一"metadata 作为上下文、而非推断"机制:在 prompt 中加入单个约 4 KB 的手写 semantic-layer 文档,使三个前沿模型的首发分析准确率提升 +17.2–23.2 pp(例如 45.5%→68.7%),每一对配对 McNemar 检验 p ≤ 0.0015 [2: §5.1]。关键在于,[2] 的效应是 *结构性* 的:有该文档时三个模型在统计上不可区分,没有时也不可区分 —— 是文档的存在、而非模型档次,解释了几乎全部成对方差 [2: §5.2]。这直接回应了 MR 最严重的混淆因素(见下):[2] 中的锚定增益 *并非* backbone 能力的产物。
 
@@ -17,7 +17,7 @@
 
 **我们应当怎么做。** 把带类型的 metadata catalog 当作主干,但把 catalog 的 *丰富度* 当作一等问题、而非假设:我们的访问层必须在仅有 schema + 文本的 catalog 上优雅降级,并最好能自行 *自举(bootstrap)* 出更丰富的 metadata(MR 的"附加画像是预计算且廉价的"[1] 支持把画像作为常驻的 catalog 构建步骤)。在访问方式上,结构化地化解 [1]/[2] 的张力:当 catalog 较大时 agentic 地选出充分且最小的集合,再在该集合能放进 context window 时内联它 + 一个 semantic layer 用于锚定 —— 把"相关 metadata 是否小到足以内联?"做成一个显式的路由决策,而非永远检索或永远内联。
 
-## Goal B — One catalog across structured / unstructured / view / vector
+## Goal B —— 跨 结构化 / 非结构化 / view / vector 的统一 catalog
 
 **当前文献的结论。** 仍是部分覆盖,如今更显不足。MR 把结构化 + 半结构化表统一在一个搜索/选择接口下,并通过注入的 lineage 把派生/分区表当作 view 式资源处理,但 **显式排除了非结构化数据** [1]。[2] 加入了一个 semantic-layer 锚定机制,但同样 **仅限结构化**(25 张表的 ClickHouse 零售数仓,text-to-SQL)[2: §4.1]。两篇论文,对非结构化/vector 这条线零覆盖。
 
@@ -25,7 +25,7 @@
 
 **我们应当怎么做。** 把非结构化统一主张视为未被证明,并主动优先攻克它。后续阅读应锁定那些把非结构化或 vector 源纳入 *同一* catalog + 选择/锚定接口的工作,而非另起一条并行的 RAG 流水线 —— 那正是 thesis 最暴露、而迄今两篇论文都缄默之处。
 
-## Goal C — Semantic layers / views as churn absorbers
+## Goal C —— semantic layer / view 作为变动吸收器
 
 **当前文献的结论。** 这个目标从"几乎没有"翻转为"首个直接、受控的证据 —— 但只覆盖主张的一半"。[2] 是第一篇瞄准 RQ3 的论文:一个手写的 semantic layer(度量公式、维度层级、数据约定、消歧规则)以上下文形式供给后,将 text-to-SQL 的主导失败类别(schema-linking + 业务逻辑,占错误的 >80%)从开放式推断转化为受约束的查阅 [2: §3.1, §6.1],带来 +17–23 pp 的增益 [2: §5.1]。增益恰好集中在物理源会误导 agent 之处:snapshot-vs-flow 语义(原始条件对每日库存快照求和,数值大了约 1000 倍)、哨兵键、字符串型布尔值、以及针对一个截至 2009-12-31 的数据集做时间锚定 [2: §5.4]。MR 基于 lineage 将派生表映射到干净基表祖先 [1] 仍是一个较弱的相邻信号 —— 一个原始的"view 覆盖物理变动"把手,但还算不上一等的 semantic layer。
 
@@ -33,7 +33,7 @@
 
 **我们应当怎么做。** 把"*某种* semantic layer 有助于锚定"这一结果收入囊中,但保持变动吸收主张为开放:近期的探针现在比 v1 更锐利 —— 当物理 schema 在其底下发生变化时,一个 *运行时 / view* 的 semantic layer 能否保持准确率,相较于一个必须重新编写的上下文形式文档?把 semantic layer 构建为一个被强制执行的运行时产物(使其能吸收变动),而非一个 prompt 字符串([2] 只在静态快照上证明了后者),并在刻意制造的物理源漂移下测试它。
 
-## Goal D — Ontology conformance as the consistency contract
+## Goal D —— ontology conformance 作为一致性契约
 
 **当前文献的结论。** 从"设计上兼容、未测量"升级为"经代理指标测量、并被跨源佐证"。MR 仍只 *可选地* 允许把术语表/ontology 作为 catalog 级 metadata,从未隔离其效应 [1]。但 [2] §6.3 明确把 markdown semantic layer 的因果机制等同于形式化 ontology 方法 —— Sequeda 等人的 OWL ontology(16.7%→54.2%)以及 Allemang & Sequeda 的基于 ontology 的校验(→72%)—— 且锚定效应在多个 ontology 研究中得到独立佐证(Sequeda;Luo 等人的临床 QA,借助 ontology-grounded GraphRAG 从 37%→98%)[2: §2.6, §6.3]。跨源一致提升了"*被描述的语义* 驱动了增益"的可信度。
 
@@ -41,7 +41,7 @@
 
 **我们应当怎么做。** 把 ontology conformance 保留为一个待测量的假设,但锐化 A/B:不只是无 schema vs. ontology-grounded,而是 *临时被描述的语义*(Cube 风格的 markdown 文档)vs. *符合 ontology 的被描述语义*(同样内容,但针对共享 schema 做了类型化),衡量多步任务中的一致性漂移。[2] 表明被描述的语义有帮助;它并未表明承担作用的是 *conformance*。
 
-## Goal E — Keeping supply correct over long tasks (freshness / lifecycle)
+## Goal E —— 长任务中保持供给正确(freshness / lifecycle)
 
 **当前文献的结论。** 仍然单薄,如今还略有张力。MR 唯一与 freshness 相邻的机制是生命周期/质量后缀标记(`_prod/_stg/_test`、`_broken_fk`、`_nulls`),用于定义"无噪声"选择,但这些标记是作者注入并暴露在 metadata 中的,因此 99% 的避噪数字部分反映的是读取注入标签 [1]。[2] 让这一缺口更显性、而非弥合它:它的整个前提是一个 *权威静态* 的手写文档,**没有** 测试任何陈旧化、部分文档或错误文档的条件 —— 尽管它引用了 BIRD 审计发现 7–10% 的 evidence 标注有误 [2: §2.6, §6.5]。
 

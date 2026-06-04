@@ -32,4 +32,4 @@ data catalog 的 metadata 必须 **符合共享 ontology/schema**(到 `ontology`
 - 实际归属于 decision/execution/trace 支柱的工作。
 
 ## Examples
-_(empty until the first notes land)_
+_(尚无笔记时留空)_
